@@ -1,0 +1,133 @@
+#include <TridentTD_LineNotify.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <RBDdimmer.h>//
+#include <BlynkSimpleEsp32.h>
+
+// #include <ESP8266WiFi.h>           // Header file for Wifi Module 
+// #include <BlynkSimpleEsp8266.h>  // header file for blynk 
+
+
+/* Variable */
+#define BLYNK_PRINT Serial  //Blynk
+#define BLYNK_TEMPLATE_ID           "TMPLEKI3lrzc"
+#define BLYNK_TEMPLATE_NAME         "Quickstart Device"
+#define BLYNK_AUTH_TOKEN            "ITT2fhA20tDSTi4cFLbPXj87x5z8xsI3"
+
+
+
+
+BlynkTimer timer;
+
+// Set password to "" for open networks.
+char auth[] = BLYNK_AUTH_TOKEN;
+// char ssid[] = "Pound_wifi_2.4G";
+// char pass[] = "246565Ppsk";
+//char ssid[] = "iphoneCC";
+//char pass[] = "champ123";
+char ssid[] = "Sitthichok";
+char pass[] = "0654245287";
+// char ssid[] = "Champtrue 2.4G";
+// char pass[] = "champ12345";
+char LINE_TOKEN[] = "VS3BM8jVtVzS1IdTakgTbPdqMJtTKedUUwALcx8zvyo";
+
+// dimmer
+int x = 0;
+int buf2;
+int outVal = 0;
+
+
+
+
+#define outputPin  12
+#define zerocross  5 // for boards with CHANGEBLE input pins
+
+dimmerLamp dimmer(outputPin, zerocross); //initialase port for dimmer for ESP8266, ESP32, Arduino due boards
+//dimmerLamp dimmer(outputPin); //initialase port for dimmer for MEGA, Leonardo, UNO, Arduino M0, Arduino Zero
+
+
+
+//---------------------------------------------------------------------------------- setup --------------------------------------------------------///
+void setup() {
+  Serial.begin(115200);
+  //dimmer.begin(NORMAL_MODE, OFF); //dimmer initialisation: name.begin(MODE, STATE) 
+   Serial.println("ESP32 Run...");
+  Serial.println("Dimmer Program is starting...");
+  Serial.println("Set value");
+  Blynk.begin(auth,ssid,pass);
+  LINE.setToken(LINE_TOKEN);
+
+ 
+  dimmer.begin(NORMAL_MODE, ON); //dimmer initialisation: name.begin(MODE, STATE ON Or OFF) 
+
+
+
+
+
+//*****************************************************************ส่งDataToLine ทุกๆ 5 นาที *******************************************************************************/
+ //timer.setInterval(8000L, sendDataToLine);
+  
+
+
+}
+
+void loop() {
+  Blynk.run();
+ Serial.println(buf2);
+  timer.run();
+  dimmerLight();
+  //LineLight();
+
+
+}
+
+
+/////////////////////////////////////////----------------------------------------------- Start Dimmer ----------------------------------------////////////////////////////////
+void dimmerLight(){
+  int preVal = outVal;
+  if (Serial.available())
+  {
+    int buf = Serial.parseInt();
+    if (buf != 0) outVal = buf;
+    delay(200);
+  }
+  dimmer.setPower(outVal); // setPower(0-100%);
+
+  if (preVal != outVal)
+  {
+    Serial.print("lampValue -> ");
+    Serial.print(dimmer.getPower());
+    Serial.println("%");
+  }
+  delay(500);
+}
+////////////-------------------------------------------------------------------------------- end Dimmer ------------------------------------------------------------//
+
+
+
+
+BLYNK_WRITE(V4){  // Set to your virtual pin  
+  int p = param.asInt();
+  buf2 = p;
+  outVal = map(p,0,100,0,100); // mapped the value for dimmer
+  //dimmer.setPower(dimming);               // Set dimmer power
+  //Blynk.virtualWrite(V1, dim_val); //sending to Blynk
+ }
+
+BLYNK_WRITE(V5){  // Set to your virtual pin  
+  int s = param.asInt();
+  if(s == 0){
+    outVal = 0; 
+    LINE.notify("ไฟดับ");
+  }else if (s == 1){
+    outVal = 99; 
+    LINE.notify("ไฟติด");
+    }
+  }
+
+
+
+
+
+ 
+

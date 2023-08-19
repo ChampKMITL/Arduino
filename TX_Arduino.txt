@@ -1,0 +1,136 @@
+#include <RBDdimmer.h>//
+#include <SoftwareSerial.h>
+#include "DHT.h"
+
+#define DHTPIN 5 //ขา5
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+DHT dht(DHTPIN, DHTTYPE);
+
+SoftwareSerial UnoSerial(3, 2); // RX | TX
+
+
+int analogPin3 = 3; //ประกาศตัวแปร ให้ analogPin แทนขา analog ขาที่3 humidityDeep
+int analogPin1 = 4; //ประกาศตัวแปร ให้ analogPin แทนขา analog ขาที่4 WATER
+int analogPin2 = 5; //ประกาศตัวแปร ให้ analogPin แทนขา analog ขาที่5 LDR
+int val1 = 0;
+int val2 = 0;
+int val3 = 0;
+int val4 = 0 ;
+int val5 = 0;
+
+int ValWater;
+
+//time
+unsigned long period = 1000; //ระยะเวลาที่ต้องการรอ 1 วินาที
+unsigned long last_time = 0; //ประกาศตัวแปรเป็น global เพื่อเก็บค่าไว้ไม่ให้ reset จากการวนloop
+
+
+//result dimmer
+//#define USE_SERIAL  SerialUSB //Serial for boards whith USB serial port
+// #define USE_SERIAL  Serial
+// #define outputPin  7
+// #define zerocross  6 // for boards with CHANGEBLE input pins
+// //dimmerLamp dimmer(outputPin, zerocross); //initialase port for dimmer for ESP8266, ESP32, Arduino due boards
+// dimmerLamp dimmer(outputPin); //initialase port for dimmer for MEGA, Leonardo, UNO, Arduino M0, Arduino Zero
+//int outVal = 0 ;
+int d_Val;
+
+
+
+
+/**************************************////
+void setup() {
+  pinMode(3, INPUT);
+  pinMode(2, OUTPUT);
+
+  UnoSerial.begin(57600);
+  Serial.println("Arduino RUN!!");
+  Serial.println("Status\tsensorWater \tsensorLDR \t");
+
+  dht.begin();
+  Serial.begin(9600);
+
+  //dimmer setup
+  //USE_SERIAL.begin(9600);
+  //dimmer.begin(NORMAL_MODE, ON); //dimmer initialisation: name.begin(MODE, STATE ON Or OFF) 
+  Serial.println("Dimmer Program is starting...");
+  
+}
+ 
+
+
+
+
+
+void loop() {
+
+//time
+//if( millis() - last_time > period) {
+
+
+  float humidity = dht.readHumidity(); // ดึงค่าความชื้น
+    int Per_humidity = map(humidity, 0, 103, 0, 100);
+
+  float temperature = dht.readTemperature(); // ดึงค่าอุณหภูมิ
+
+  int sensorhumidityDeep = analogRead(A3);//ใช้ขา A3 อนาล็อค
+      int Per_humidityDeep = map(sensorhumidityDeep, 0, 1025, 0, 100);
+
+  int sensorWater = analogRead(A4);
+    ValWater = sensorWater;
+    // if(sensorWater > 300){
+    // val4 = 1;
+    // }
+    // else{
+    //   val4 = 0;
+    // }
+
+  float sensorLDR = analogRead(A5);
+    int Per_sensorLDR = map(sensorLDR, 0, 1000, 0, 100);
+
+
+  // Serial.print("vaWATER = "); // พิมพ์ข้อความส่งเข้าคอมพิวเตอร์ "val = "
+  // Serial.print(sensorWater); // พิมพ์ค่าของตัวแปร val
+  // Serial.print("   ");
+  // Serial.print("valLDR = "); 
+  // Serial.println(sensorLDR);
+
+  Serial.print("\t");
+ Serial.print("valWATER = "); 
+ Serial.print(ValWater, 1);
+  Serial.print("\t\t");
+ Serial.print("valLDR = "); 
+  Serial.print(Per_sensorLDR, 1);
+  Serial.print(" %\t\t");
+  Serial.print("valHumidityDeep = "); 
+  Serial.print(Per_humidityDeep, 1);
+  Serial.print(" %\t\t");
+  Serial.print("humidity = "); 
+  Serial.print(Per_humidity, 1);
+  Serial.print(" %\t\t");
+
+  Serial.print("temperature = "); 
+  Serial.print(temperature, 1);
+
+  Serial.println("\t\t");
+  
+    Serial.print(last_time , 1); //Serial.println(" Hello arduinona!");
+  //delay(500);
+
+  //ส่งค่าไปที่   ESP
+  UnoSerial.print(ValWater);//เป็นค่า 1 มีน้ำ, 0 ไม่มีน้ำ 
+  UnoSerial.print(" ");
+  UnoSerial.print(Per_sensorLDR);
+  UnoSerial.print(" ");
+  UnoSerial.print(Per_humidityDeep);
+  UnoSerial.print(" ");
+  UnoSerial.print(temperature);
+  UnoSerial.print(" ");
+  UnoSerial.print(Per_humidity);
+  UnoSerial.print("\n");
+
+  delay(500);
+
+  }
+
+  

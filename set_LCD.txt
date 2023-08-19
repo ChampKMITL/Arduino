@@ -1,0 +1,46 @@
+#include <LiquidCrystal_I2C.h>
+
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+
+  // lcd.setCursor(0, 0);
+  // lcd.print("Hello, Wokwi 1");
+  //  lcd.setCursor(0, 1);
+  // lcd.print("Hello, Wokwi 2");
+  //  lcd.setCursor(0, 2);
+  // lcd.print("Hello, Wokwi 3");
+  //  lcd.setCursor(0, 3);
+  // lcd.print("Hello, Wokwi 4");
+      lcd.home();
+      lcd.setCursor(0, 0);
+      lcd.print("Temp : ");
+      lcd.print(String(38) );
+      lcd.print(" C");
+      
+      lcd.setCursor(0, 1);
+      lcd.print("Humidity : ");
+      lcd.print(String(67));
+      lcd.print(" %");
+      
+
+      lcd.setCursor(0, 2);
+      lcd.print("Hum. in soil : ");
+      lcd.print(String(78));
+      lcd.print(" %");
+      //lcd.setCursor(0, 2);
+
+      
+      lcd.setCursor(0, 3);
+      lcd.print("Light : ");
+      lcd.print(String(69));
+      lcd.print(" %");
+      
+}
+
+void loop() {
+  // lcd.setCursor(7, 1);
+  // lcd.print(millis() / 1000);
+}

@@ -1,0 +1,468 @@
+#include <ESP8266WiFi.h>
+#include <SoftwareSerial.h>
+#include <BlynkSimpleEsp8266.h>
+#include <TridentTD_LineNotify.h>
+#include <WiFiClientSecure.h>
+
+
+//นำเข้าหน้าจอ defult D1 D2 เสมอ//
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+/* Variable */
+#define BLYNK_PRINT Serial  //Blynk
+#define BLYNK_TEMPLATE_ID           "TMPLEKI3lrzc"
+#define BLYNK_TEMPLATE_NAME         "Quickstart Device"
+#define BLYNK_AUTH_TOKEN            "ITT2fhA20tDSTi4cFLbPXj87x5z8xsI3"
+
+// Set password to "" for open networks.
+char auth[] = BLYNK_AUTH_TOKEN;
+// char ssid[] = "Pound_wifi_2.4G";
+// char pass[] = "246565Ppsk";
+char ssid[] = "Sitthichok";
+char pass[] = "0654245287";
+// char ssid[] = "iphoneCC";
+// char pass[] = "champ123";
+// char ssid[] = "Champtrue 2.4G";
+// char pass[] = "champ12345";
+char LINE_TOKEN[] = "VS3BM8jVtVzS1IdTakgTbPdqMJtTKedUUwALcx8zvyo";
+
+//set Variable. Rx
+int valLDR  = 0;
+float valTemp  = 0;
+int valHumDeep  = 0;
+int valHum  = 0;
+int valLevel  = 0;
+
+int i_data ;
+int d_Val ;
+// char StatusWater[] = " " ;
+//  char StatusWater0[] = "N" ;
+
+
+
+// WiFi
+WiFiClientSecure client;
+//----------------------------------------Host & httpsPort ----------------------------//
+const char* host = "script.google.com"; 
+const int httpsPort = 443;
+//----------------------------------------Host & httpsPort --------------------//
+
+// set id scirpt google sheet
+String GAS_ID = "AKfycbxdYfr-Bik3sHL9re54uvV4uISX7QsK0MZ42c3oxhBbSXDQyobaiifOYmNNv64zOdMiWA";
+
+// send data to google Sheet
+#define UPDATE_INTERVAL_HOUR  (0)
+#define UPDATE_INTERVAL_MIN   (0)
+#define UPDATE_INTERVAL_SEC   (30)
+#define UPDATE_INTERVAL_MS    ( ((UPDATE_INTERVAL_HOUR*60*60) + (UPDATE_INTERVAL_MIN * 60) + UPDATE_INTERVAL_SEC ) * 1000 )
+
+// Function SoftwareSerial RX | TX
+SoftwareSerial NodeSerial(D6, D8); 
+
+BlynkTimer timer;
+// WidgetLED led(V0);
+
+
+
+//---------end set dimmer -------//
+
+
+//------------------------start Relay---------------------//
+//control FAN
+#define Relay1 D0
+WidgetLED LED_1(V1);
+
+//contro; pump
+#define Relay2 D7
+WidgetLED LED_2(V2);
+
+//stat1 = false Line  สถานะไลน์ พัดลม Input1
+boolean stat1 = false;
+
+//stat2 = false Line  สถานะไลน์ ปั๊ม Input2
+boolean stat2 = false;
+
+//------------------------ endRelay--------------------------//
+
+/********************************************************************* Time ************************/
+
+// const long oneSecond  = 1000;               // 1000 มิลลิวินาที = 1 วินาทีเท่ากับ
+// const long oneMinute  = oneSecond * 60;     //    1 นาที     = 1 วินาที  x 60 วินาที
+// const long oneHour    = oneMinute * 60;     //    1 ชั่วโมง   = 1 นาที   x 60 นาที
+// const long oneDay     = oneHour * 24;       //    1 วัน      = 1 ชั่วโมง x 24 ชั่วโมง
+// const long twoDay     = oneDay * 2;         //    2 วัน      = 1 วัน    x 2 วัน
+// const long threeDay   = oneDay * 3;         //    3 วัน      = 1 วัน    x 3 วัน
+// const long fourDay    = oneDay * 4;         //    4 วัน      = 1 วัน    x 4 วัน
+// const long fiveDay    = oneDay * 5;         //    5 วัน      = 1 วัน    x 5 วัน
+// const long sixDay     = oneDay * 6;         //    6 วัน      = 1 วัน    x 6 วัน
+// const long sevenDay   = oneDay * 7;         //    7 วัน      = 1 วัน    x 7 วัน
+
+// const long fiveMinute  = (oneSecond * 60)  * 5;  
+
+// Test milis() Time
+#define timerSet 7000 //ระยะเวลาที่ต้องการรอ 1 นาที
+unsigned long last_time = millis(); //ประกาศตัวแปรเป็น global เพื่อเก็บค่าไว้ไม่ให้ reset จากการวนloop
+ //timer = millis();
+//------------------------------------------------------------------------------------------------------------------------//
+const long fiveMinute  = (1000 * 60) * 5; // หน่วงเวลา 5 นาที
+// const long haftDay = (oneHour * 12); // ครึ่งวัน หรือ 12 ชม.  
+
+
+
+/********************************************************************* Time ********************/
+
+
+
+
+
+
+
+
+
+
+void setup() {
+
+  pinMode(D6, INPUT);
+  pinMode(D8, OUTPUT);
+  Serial.begin(115200);
+  NodeSerial.begin(57600);
+  Blynk.begin(auth,ssid,pass);
+  LINE.setToken(LINE_TOKEN);
+
+  Serial.println("NodeMCU/ESP8266 Run");
+
+  //pinMode(D4, OUTPUT);// A0 Silder LED Control Dimmer
+   
+  //Relay Set
+  pinMode(Relay1, OUTPUT); //คุมพัดลม  D0
+  digitalWrite(Relay1, HIGH); //คุมพัดลม จ่ายVcc = 1 หรือ HIGH ให้ relay ไม่ทำงาน
+
+  pinMode(Relay2, OUTPUT); //คุมปั๊ม   D7
+  digitalWrite(Relay2, HIGH); //คุมปัีม จ่ายVcc = 1 หรือ HIGH  ให้ relay ไม่ทำงาน
+
+  //LED Set
+  lcd.begin();
+  lcd.display();        //เปิดหน้าจอ
+  lcd.backlight();      //เปิดไฟ backlight 
+
+
+
+ 
+//*****************************************************************ส่งDataToSheet ทุกๆ 5 นาที *******************************************************************************/
+  timer.setInterval(fiveMinute, sendDataToSheet);
+//*****************************************************************ส่งDataToLine ทุกๆ 5 นาที *******************************************************************************/
+ timer.setInterval(fiveMinute, sendDataToLine);
+   //*****************************************************************ส่ง sendLinkDataDashboard ทุกๆ 5 นาที *******************************************************************************/
+  //timer.setInterval(fiveMinute, sendLinkDataDashboard);
+  //*****************************************************************แจ้งเตือนระดับน้ำในถังทุก ทุกๆ 5 นาที เมื่อมีน้ำในระดับจะไม่แจ้ง*******************************************************************************/
+  timer.setInterval(fiveMinute, sendLevelWater);
+  //*****************************************************************แจ้งเตือนใส่ปุ๋ย ทุกๆ 3 วัน ปล. test 1 นาที *******************************************************************************/
+  //timer.setInterval(oneMinute,sendTextFertilizer);
+  
+}
+
+
+
+
+
+
+
+void loop() {
+
+     
+  // RX Data from Arduino
+  while (NodeSerial.available() > 0)
+  {
+    // set  sensor Water
+    int ValWater = NodeSerial.parseInt();
+    valLevel = ValWater;
+
+    // set  sensor LDR
+    int Per_sensorLDR = NodeSerial.parseInt();
+    valLDR = Per_sensorLDR;
+
+    // set  sensor humidityDeep
+    int Per_humidityDeep = NodeSerial.parseInt();
+    valHumDeep = Per_humidityDeep;
+
+     // set  sensor humidity
+    int Per_humidity = NodeSerial.parseInt();
+    valHum  = Per_humidity;
+
+    // set  sensor temp.
+    float temperature = NodeSerial.parseFloat();
+    valTemp = temperature;
+
+   
+
+    //int val4 = NodeSerial.parseInt();
+
+
+    // read Data from RX
+    if (NodeSerial.read() == '\n')
+    {
+      Serial.print("sensorWater");
+      Serial.print(": ");
+      Serial.print(valLevel); //เป็นค่า 1 มีน้ำ, 0 ไม่มีน้ำ 
+      Serial.print("    sensorLDR: ");
+      Serial.print(valLDR);
+      Serial.print("    Per_humidityDeep: ");
+      Serial.print(Per_humidityDeep);
+
+
+                        //การทำงานปั๊ม  Input 2 //การทำงานปั๊ม  Input 2 D7   !! OK !!
+                  int Relay2_Stautus = digitalRead(Relay2);
+                            if (valHumDeep > 85){ //ความชื้นในดินแห้ง เกิน 85 % พัดลมทำงาน 6 วินาที
+                                 if(stat2 == false){
+                                      digitalWrite(Relay2,LOW); //สั่งปั๊ม เปิด
+                                      // Serial.print(" STATUS" + String(Relay1_Stautus)); Serial.print("on   ");
+                                      Serial.print(".. ON .. ");
+                                      LINE.notify("ปั๊ม เปิด \n ความชื้นในดิน : " + String(valHumDeep) + " % \n กำลังรดน้ำ \n"); 
+                                       // delay(6000);//เปิดไว้ 6 วินาที
+                                        digitalWrite(Relay2,HIGH); //สั่งปั๊ม ปิด
+                                         LINE.notify("ปั๊ม ปิด \n ความชื้นในดิน : " + String(valHumDeep) + " % \n กำลังรดน้ำ \n");  
+                                        Serial.print(".. OFF .. ");
+                                        
+                                        stat2 = true;
+                                 }      
+                            }
+                            else{
+                              
+                                stat2 = false;
+                            } 
+
+      Serial.print("    sensortemperature: ");
+      Serial.print(temperature);
+      Serial.print("    Per_humidityp: ");
+      Serial.println(Per_humidity);
+
+                            //การทำงานพัดลม  Input 1 D0   !! OK !!
+                  int Relay1_Stautus = digitalRead(Relay1);
+                            if (valHum > 75){   //ความชื้นเกิน 75 % พัดลมทำงาน 6 วินาที
+                              //ทำงาน 1 ครั้ง 
+                                 if(stat1 == false){ //เช็คสถานะว่า เป็น false ถึงทำงาน
+                                      digitalWrite(Relay1,LOW); //สั่งพัดลมเปิด
+                                      // Serial.print(" STATUS" + String(Relay1_Stautus)); Serial.print("on   ");
+                                      Serial.print(" ON .. ");
+                                      LINE.notify("พัดลม เปิด  ความชื้นในอากาศ : " +   String(valHum) + " % กำลังทำงาน \n"); 
+                                          delay(6000);//เปิดไว้ 6 วินาที   
+                                      digitalWrite(Relay1,HIGH); //สั่งพัดลมปิด
+                                      LINE.notify("พัดลม ปิด  ความชื้นในอากาศ : " +   String(valHum) + " % กำลังทำงาน \n");
+                                      //LINE.notify("พัดลม ปิด "); 
+                                      Serial.print(" OFF .. " ); 
+                                      Serial.print( last_time);
+                                        
+                                    stat1 = true;
+                                 }      
+                            }
+                            else{
+                              
+                                stat1 = false;
+                            } 
+
+    
+    /***/
+    }
+    //  NodeSerial.print(i_data);
+    // NodeSerial.print("\n");
+  }
+    //delay(6000);
+
+    
+
+
+    /************************************************************************/
+     
+    
+
+  //  Blynk data DachBoad
+    Blynk.virtualWrite(V6, valTemp);
+    Blynk.virtualWrite(V7, valHum);
+    Blynk.virtualWrite(V8, valHumDeep);
+    Blynk.virtualWrite(V9, valLDR);
+
+
+     Blynk.run();
+     timer.run();
+
+     //TXdata();
+
+     lcd.home();
+      lcd.print("Temp : ");
+      lcd.print(String(valTemp) );
+      lcd.print(" C");
+      lcd.setCursor(0, 1);
+
+      lcd.print("Humidity : ");
+      lcd.print(String(valHum));
+      lcd.print("%");
+      lcd.setCursor(0, 2);
+
+
+      lcd.print("Hum in soil:");
+      lcd.print(String(valHumDeep));
+      lcd.println("%");
+      lcd.setCursor(0, 3);
+
+      
+
+      // lcd.print("Light : ");
+      // lcd.print(String(valLDR));
+      // lcd.print("%");
+      // lcd.setCursor(0, 4);
+
+     
+}
+
+
+/***************************************************************************  end void loop    **********************/
+
+// เตรียมเอาค่าที่อ่านได้ไปทำงานต่อ โดยเทสกับระบบดีเลย์ วัดความชื้นในดิน
+
+void sendDataToLine() {
+  LINE.notify( "ค่า LDR : " +  String(valLDR) + " %\n"  +  "ความชื้นในดิน : " +   String(valHumDeep) + " %\n" + "ความชื้นในอากาศ : " +   String(valHum) + " %\n"  + "อุณหภูมิ : " +   String(valTemp) + " °C\n" );
+}
+
+//*************************************************************** start แจ้งเตือนน้ำในถังน้ำ ทุก 5 นาที  ********************************************//
+void sendLevelWater() {
+  if (valLevel  < 1000 ){
+    LINE.notify( " กรุณาเติมน้ำ" );
+    //Serial.println("sendLevelWater work");
+    }
+  else {
+    //LINE.notify( "N" );
+    }
+}
+//*************************************************************** end แจ้งเตือนน้ำในถังน้ำ ทุก 5 นาที  ********************************************//
+
+
+//***************************************************************** start ส่งDataToSheet ทุกๆ 5 นาที *******************************************************************************/
+void sendDataToSheet() {
+
+
+    Serial.print("connecting to ");
+    Serial.println(host);
+  
+    // Use WiFiClient class to create TCP connections
+    WiFiClientSecure client;
+    const int httpPort = 443; // 80 is for HTTP / 443 is for HTTPS!
+    
+    client.setInsecure(); // this is the magical line that makes everything work
+    
+    if (!client.connect(host, httpPort)) { //works!
+      Serial.println("connection failed");
+      return;
+    }
+       
+    //----------------------------------------Processing data and sending data google sheet----------------------------------------------//
+    String url = "/macros/s/" + GAS_ID + "/exec?temperature=";
+   
+    url += String(valTemp);
+    
+    url += "&humidity=";
+    url += String(valHum);
+
+    url += "&humidityDeep=";
+    url += String(valHumDeep);
+
+    url += "&LDR=";
+    url += String(valLDR);
+    
+    Serial.print("Requesting URL: ");
+    Serial.println(url);
+  
+    // This will send the request to the server
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" + 
+                 "Connection: close\r\n\r\n");
+  
+    //debug ดูค่า 3 อย่างที่ส่งที่ google sheet
+      Serial.println("อุณหภูมิ : " + String(valTemp)  + " C " + "ความชื้นในอากาศ" + String(valHum) + " % " +"ความชื้นในดิน " + String(valHumDeep) + "LDR : " + String(valLDR));
+      //Serial.println("closing connection");  
+}
+
+
+
+/************************************************************************ end ส่งข้อมูลไปที่ google sheet ************************************************************************************/
+
+
+
+
+
+
+
+
+
+
+//********************************ให้กด link ไปดู data sheet ที่เอาไปทำต่อ *************************************/
+void sendLinkDataDashboard() {
+  //LINE.notify("สามมารถดูข้อมูลการส่งค่าของเซนเซอร์ได้จาก : " +   String("https://www.dpu.ac.th") );
+}
+//********************************ให้กด link ไปดูdata sheet ที่เอาไปทำต่อ *************************************/
+
+
+
+
+
+
+//********************************ใส่ปุ๋ย ทุกๆ ? นาที *************************************/
+void sendTextFertilizer() {
+  //LINE.notify(" กรุณาเติมปุ๋ย " );
+}
+
+
+
+
+
+
+
+
+
+  //เปิดปิดพัดลมผ่านปุ่ม FAN LED 2 in Blynk D7 
+BLYNK_WRITE(V1){ //D0
+ // Serial.println(param.asInt());
+    if (param.asInt()) {
+      digitalWrite(Relay1 ,LOW); 
+      LED_1.on();
+      LINE.notify("สถานะพัดลม เปิด");
+    }
+    else {
+      digitalWrite(Relay1 ,HIGH); 
+      LED_1.off();
+      LINE.notify("สถานะพัดลม ปิด");
+    }
+  }
+
+/****************************************************************** BLYNK App  ************************************/
+  //เปิดปิดปั๊มผ่านปุ่ม PUMP LED 3 in Blynk D0
+BLYNK_WRITE(V2){ //D7
+ // Serial.println(param.asInt());
+    if (param.asInt()) {
+      digitalWrite(Relay2 ,LOW); 
+      LED_2.on();
+      LINE.notify("สถานะปั๊ม เปิด");
+    }
+    else {
+      digitalWrite(Relay2 ,HIGH); 
+      LED_2.off();
+      LINE.notify("สถานะปั๊ม ปิด");
+    }
+  }
+
+
+BLYNK_WRITE(V5){  //D6 Control Button LED close/open
+    if (param.asInt()) {
+      //digitalWrite(Relay3 ,LOW); 
+      digitalWrite(D4,HIGH);
+      
+    }
+    else {
+      //digitalWrite(Relay3 ,HIGH); 
+      digitalWrite(D4,LOW);
+    
+    }
+  }
+
+
+
